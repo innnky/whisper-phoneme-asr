@@ -11,7 +11,7 @@ from modules.symbols import phone_set, c_set, v_set
 sampling_rate = 16000
 hop_length = 320
 
-
+sil_symbols = ["sp", "SP", "spn", "sil"]
 def get_alignment(tier):
     phones = []
     durations = []
@@ -58,6 +58,8 @@ def remove_dup(phs, dur):
     new_gtdurs = []
     last_ph = None
     for ph, dur in zip(phs, dur):
+        if ph in sil_symbols:
+            ph = "SP"
         if ph != last_ph:
             new_phos.append(ph)
             new_gtdurs.append(dur)
@@ -85,9 +87,9 @@ def get_tone(phone, raw_tone):
     return tones
 
 with open(f"filelists/{target}.list", "w") as out_file:
-    for spk in tqdm.tqdm(os.listdir(f"dataset/tgt/")):
-        if os.path.isdir(f"dataset/tgt/{spk}"):
-            align_root= f"dataset/tgt/{spk}"
+    for spk in tqdm.tqdm(os.listdir(f"dataset/tgts/")):
+        if os.path.isdir(f"dataset/tgts/{spk}"):
+            align_root= f"dataset/tgts/{spk}"
             for txgridname in sorted(os.listdir(align_root)):
                 if txgridname.endswith("Grid"):
                     textgrid = tgt.io.read_textgrid(f"{align_root}/{txgridname}")
@@ -97,8 +99,18 @@ with open(f"filelists/{target}.list", "w") as out_file:
                     phone, duration = remove_dup(phone, duration)
 
                     id_ = txgridname.replace(".TextGrid", "")
-                    raw_tone = open(f"dataset/wavs/{spk}/{id_}.tone").read()
-                    tone = get_tone(phone, raw_tone)
+
+                    try:
+                        raw_tone = open(f"dataset/wav/{spk}/{id_}.tone").read()
+                        raw_pinyins = open(f"dataset/wav/{spk}/{id_}.lab").read()
+                    except:
+                        print("skip", txgridname)
+                        continue
+                    try:
+                        tone = get_tone(phone, raw_tone)
+                    except:
+                        print("phoneme err", txgridname)
+                        continue
 
                     ph = " ".join(phone)
                     du = " ".join([str(i) for i in duration])

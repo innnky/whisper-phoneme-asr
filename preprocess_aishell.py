@@ -59,4 +59,13 @@ shutil.copy("assets/opencpop-strict.txt", "assets/dict.dict")
 rm -rf ./mfa_temp; mfa train dataset/wav/ assets/dict.dict dataset/model.zip dataset/tgt --clean --overwrite -t ./mfa_temp -j 5
 """
 
+"""
+mfa_train_and_align  wav/ assets/dict.dict  tgt  -o canton_model --clean --verbose --temp_directory .mfa_train_and_align
+export PATH="/home/ubuntu/mfa/montreal-forced-aligner/bin"
+"""
+
+# usage: mfa_train_and_align [-h] [-o OUTPUT_MODEL_PATH] [-s SPEAKER_CHARACTERS]
+#                            [-t TEMP_DIRECTORY] [-f] [-j NUM_JOBS] [-v]
+#                            [--no_dict] [-c] [-d] [-i]
+#                            corpus_directory [dictionary_path] output_directory
 
