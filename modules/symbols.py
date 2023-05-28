@@ -15,12 +15,12 @@ for line in open("assets/opencpop-strict.txt").readlines():
     [phones.add(i) for i in phs]
 
 
-phone_set = ['_'] + sorted(phones)
+phone_set = ['_'] + sorted(phones) + ["SP"]
 
 # ['_', 'E', 'En', 'a', 'ai', 'an', 'ang', 'ao', 'b', 'c', 'ch', 'd', 'e', 'ei', 'en', 'eng', 'er', 'f', 'g', 'h',
 # 'i', 'i0', 'ia', 'ian', 'iang', 'iao', 'ie', 'in', 'ing', 'iong', 'ir', 'iu', 'j', 'k', 'l', 'm', 'n', 'o', 'ong',
 # 'ou', 'p', 'q', 'r', 's', 'sh', 't', 'u', 'ua', 'uai', 'uan', 'uang', 'ui', 'un', 'uo', 'v', 'van', 've', 'vn',
-# 'w', 'x', 'y', 'z', 'zh']
+# 'w', 'x', 'y', 'z', 'zh', 'SP']
 
 phone_to_int = {}
 int_to_phone = {}

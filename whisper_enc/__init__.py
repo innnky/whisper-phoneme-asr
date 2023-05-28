@@ -1,49 +1,44 @@
-import os
-
 import torch
-from torch import nn
-
-from modules import attentions, commons
 from .whisper_encoder import AudioEncoder,  log_mel_spectrogram, pad_or_trim
-phone_set = ['_'] + [
-    "b", "c", "ch", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r",
-    "s", "sh", "t", "x", "z", "zh", "a", "ai", "an", "ang", "ao", "e", "ei",
-    "en", "eng", "er", "iii", "ii", "i", "ia", "ian", "iang", "iao", "ie", "in",
-    "ing", "iong", "iou", "o", "ong", "ou", "u", "ua", "uai", "uan", "uang",
-    "uei", "uen", "ueng", "uo", "v", "van", "ve", "vn", "AH", "AA", "AO", "ER",
-    "IH", "IY", "UH", "UW", "EH", "AE", "AY", "EY", "OY", "AW", "OW", "P", "B",
-    "T", "D", "K", "G", "M", "N", "NG", "L", "S", "Z", "Y", "TH", "DH", "SH",
-    "ZH", "CH", "JH", "V", "W", "F", "R", "HH", "AH0", "AA0", "AO0", "ER0",
-    "IH0", "IY0", "UH0", "UW0", "EH0", "AE0", "AY0", "EY0", "OY0", "AW0", "OW0",
-    "AH1", "AA1", "AO1", "ER1", "IH1", "IY1", "UH1", "UW1", "EH1", "AE1", "AY1",
-    "EY1", "OY1", "AW1", "OW1", "AH2", "AA2", "AO2", "ER2", "IH2", "IY2", "UH2",
-    "UW2", "EH2", "AE2", "AY2", "EY2", "OY2", "AW2", "OW2", "AH3", "AA3", "AO3",
-    "ER3", "IH3", "IY3", "UH3", "UW3", "EH3", "AE3", "AY3", "EY3", "OY3", "AW3",
-    "OW3", "D-1", "T-1", "P*", "B*", "T*", "D*", "K*", "G*", "M*", "N*", "NG*",
-    "L*", "S*", "Z*", "Y*", "TH*", "DH*", "SH*", "ZH*", "CH*", "JH*", "V*",
-    "W*", "F*", "R*", "HH*", "sp", "sil", "or", "ar", "aor", "our", "angr",
-    "eir", "engr", "air", "ianr", "iaor", "ir", "ingr", "ur", "iiir", "uar",
-    "uangr", "uenr", "iir", "ongr", "uor", "ueir", "iar", "iangr", "inr",
-    "iour", "vr", "uanr", "ruai", "TR", "rest",
-    # opencpop
-    'w', 'SP', 'AP', 'un', 'y', 'ui', 'iu',
-    # opencpop-strict
-    'i0', 'E', 'En',
-    # japanese-common
-    'ts.', 'f.', 'sh.', 'ry.', 'py.', 'h.', 'p.', 'N.', 'a.', 'm.', 'w.', 'ky.',
-    'n.', 'd.', 'j.', 'cl.', 'ny.', 'z.', 'o.', 'y.', 't.', 'u.', 'r.', 'pau',
-    'ch.', 'e.', 'b.', 'k.', 'g.', 's.', 'i.',
-    # japanese-unique
-    'gy.', 'my.', 'hy.', 'br', 'by.', 'v.', 'ty.', 'xx.', 'U.', 'I.', 'dy.'
-]
-phone_to_int = {}
-int_to_phone = {}
-for idx, item in enumerate(phone_set):
-    phone_to_int[item] = idx
-    int_to_phone[idx] = item
+# phone_set = ['_'] + [
+#     "b", "c", "ch", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "q", "r",
+#     "s", "sh", "t", "x", "z", "zh", "a", "ai", "an", "ang", "ao", "e", "ei",
+#     "en", "eng", "er", "iii", "ii", "i", "ia", "ian", "iang", "iao", "ie", "in",
+#     "ing", "iong", "iou", "o", "ong", "ou", "u", "ua", "uai", "uan", "uang",
+#     "uei", "uen", "ueng", "uo", "v", "van", "ve", "vn", "AH", "AA", "AO", "ER",
+#     "IH", "IY", "UH", "UW", "EH", "AE", "AY", "EY", "OY", "AW", "OW", "P", "B",
+#     "T", "D", "K", "G", "M", "N", "NG", "L", "S", "Z", "Y", "TH", "DH", "SH",
+#     "ZH", "CH", "JH", "V", "W", "F", "R", "HH", "AH0", "AA0", "AO0", "ER0",
+#     "IH0", "IY0", "UH0", "UW0", "EH0", "AE0", "AY0", "EY0", "OY0", "AW0", "OW0",
+#     "AH1", "AA1", "AO1", "ER1", "IH1", "IY1", "UH1", "UW1", "EH1", "AE1", "AY1",
+#     "EY1", "OY1", "AW1", "OW1", "AH2", "AA2", "AO2", "ER2", "IH2", "IY2", "UH2",
+#     "UW2", "EH2", "AE2", "AY2", "EY2", "OY2", "AW2", "OW2", "AH3", "AA3", "AO3",
+#     "ER3", "IH3", "IY3", "UH3", "UW3", "EH3", "AE3", "AY3", "EY3", "OY3", "AW3",
+#     "OW3", "D-1", "T-1", "P*", "B*", "T*", "D*", "K*", "G*", "M*", "N*", "NG*",
+#     "L*", "S*", "Z*", "Y*", "TH*", "DH*", "SH*", "ZH*", "CH*", "JH*", "V*",
+#     "W*", "F*", "R*", "HH*", "sp", "sil", "or", "ar", "aor", "our", "angr",
+#     "eir", "engr", "air", "ianr", "iaor", "ir", "ingr", "ur", "iiir", "uar",
+#     "uangr", "uenr", "iir", "ongr", "uor", "ueir", "iar", "iangr", "inr",
+#     "iour", "vr", "uanr", "ruai", "TR", "rest",
+#     # opencpop
+#     'w', 'SP', 'AP', 'un', 'y', 'ui', 'iu',
+#     # opencpop-strict
+#     'i0', 'E', 'En',
+#     # japanese-common
+#     'ts.', 'f.', 'sh.', 'ry.', 'py.', 'h.', 'p.', 'N.', 'a.', 'm.', 'w.', 'ky.',
+#     'n.', 'd.', 'j.', 'cl.', 'ny.', 'z.', 'o.', 'y.', 't.', 'u.', 'r.', 'pau',
+#     'ch.', 'e.', 'b.', 'k.', 'g.', 's.', 'i.',
+#     # japanese-unique
+#     'gy.', 'my.', 'hy.', 'br', 'by.', 'v.', 'ty.', 'xx.', 'U.', 'I.', 'dy.'
+# ]
+# phone_to_int = {}
+# int_to_phone = {}
+# for idx, item in enumerate(phone_set):
+#     phone_to_int[item] = idx
+#     int_to_phone[idx] = item
 
 
-LRELU_SLOPE = 0.1
+# LRELU_SLOPE = 0.1
 
 
 hps = {
@@ -77,38 +72,38 @@ hps = {
 }
 
 
-class PhonemeAsr(nn.Module):
-    """
-    Model
-    """
+# class PhonemeAsr(nn.Module):
+#     """
+#     Model
+#     """
 
-    def __init__(self, hps):
-        super().__init__()
-        self.hps = hps
+#     def __init__(self, hps):
+#         super().__init__()
+#         self.hps = hps
 
-        self.pre_net = nn.Conv1d(hps["data"]["unit_dim"], hps["model"]["prior_hidden_channels"], 1)
-        self.proj = nn.Conv1d(hps["model"]["prior_hidden_channels"], len(phone_set), 1)
-        self.encoder = attentions.Encoder(
-            hps["model"]["prior_hidden_channels"],
-            hps["model"]["prior_filter_channels"],
-            hps["model"]["prior_n_heads"],
-            hps["model"]["prior_n_layers"],
-            hps["model"]["prior_kernel_size"],
-            hps["model"]["prior_p_dropout"])
-        self.whisper_model = AudioEncoder(80, 1500, 768, 12, 12)
+#         self.pre_net = nn.Conv1d(hps["data"]["unit_dim"], hps["model"]["prior_hidden_channels"], 1)
+#         self.proj = nn.Conv1d(hps["model"]["prior_hidden_channels"], len(phone_set), 1)
+#         self.encoder = attentions.Encoder(
+#             hps["model"]["prior_hidden_channels"],
+#             hps["model"]["prior_filter_channels"],
+#             hps["model"]["prior_n_heads"],
+#             hps["model"]["prior_n_layers"],
+#             hps["model"]["prior_kernel_size"],
+#             hps["model"]["prior_p_dropout"])
+#         self.whisper_model = AudioEncoder(80, 1500, 768, 12, 12)
 
-    def forward(self, units):
-        phone_lengths = torch.LongTensor([units.shape[2]]).to(units.device)
-        x = self.pre_net(units)
-        x_mask = torch.unsqueeze(commons.sequence_mask(phone_lengths, x.size(2)), 1).to(x.dtype)
-        x = self.encoder(x * x_mask, x_mask)
-        x = self.proj(x)
-        return x
+#     def forward(self, units):
+#         phone_lengths = torch.LongTensor([units.shape[2]]).to(units.device)
+#         x = self.pre_net(units)
+#         x_mask = torch.unsqueeze(commons.sequence_mask(phone_lengths, x.size(2)), 1).to(x.dtype)
+#         x = self.encoder(x * x_mask, x_mask)
+#         x = self.proj(x)
+#         return x
 
 def load_whisper_model():
     import whisper
     model = whisper.load_model("small")
-    return model
+    return model.encoder
 
 
 def get_whisper_units(model=None, wav16k_numpy=None):

@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import autocast, GradScaler
+from config import hps
 
 import modules.models
 from modules import commons
@@ -50,8 +51,7 @@ def main():
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '37873'
 
-    hps = modules.models.hps
-    run(n_gpus, hps)
+    run(0, n_gpus, hps)
 
 
 def run(rank, n_gpus, hps):
@@ -75,7 +75,7 @@ def run(rank, n_gpus, hps):
     if rank == 0:
         eval_dataset = TextAudioSpeakerLoader(hps["data"]["validation_files"], hps["data"])
         eval_loader = DataLoader(eval_dataset, num_workers=1, shuffle=False,
-                                 batch_size=1, pin_memory=True,
+                                 batch_size=16, pin_memory=True,
                                  drop_last=False, collate_fn=collate_fn)
 
     net_g = PhonemeAsr(hps).cuda(rank)
@@ -116,14 +116,13 @@ def run(rank, n_gpus, hps):
 
 
 def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loaders, logger, writers):
-    net_g = nets
-    optim_g = optims
-    scheduler_g = schedulers
+    net_g = nets[0]
+    optim_g = optims[0]
+    scheduler_g = schedulers[0]
     train_loader, eval_loader = loaders
     if writers is not None:
         writer, writer_eval = writers
 
-    train_loader.batch_sampler.set_epoch(epoch)
     global global_step
 
     net_g.train()
@@ -133,10 +132,10 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
         unit = unit.cuda(rank, non_blocking=True)
 
         with autocast(enabled=hps["train"]["fp16_run"]):
-            _, loss_phoneme = net_g(x, x_lengths, tone, unit)
+            _,_, loss_phoneme, loss_tone = net_g(x, x_lengths, tone, unit)
 
             with autocast(enabled=False):
-                loss_gen_all = loss_phoneme
+                loss_gen_all = loss_phoneme + loss_tone
 
         optim_g.zero_grad()
         scaler.scale(loss_gen_all).backward()
@@ -148,13 +147,13 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
         if rank == 0:
             if global_step % hps["train"]["log_interval"] == 0:
                 lr = optim_g.param_groups[0]['lr']
-                losses = [loss_phoneme]
+                losses = [loss_phoneme, loss_tone]
                 logger.info('Train Epoch: {} [{:.0f}%]'.format(
                     epoch,
                     100. * batch_idx / len(train_loader)))
                 logger.info([x.item() for x in losses] + [global_step, lr])
 
-                scalar_dict = {"loss/total": loss_gen_all, "loss/loss_phoneme": loss_phoneme, "learning_rate": lr,
+                scalar_dict = {"loss/total": loss_gen_all, "loss/loss_phoneme": loss_phoneme, "loss/loss_tone": loss_tone, "learning_rate": lr,
                                 "grad_norm_g": grad_norm_g}
 
                 # scalar_dict.update({"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)})
@@ -177,32 +176,50 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     if rank == 0:
         logger.info('====> Epoch: {}'.format(epoch))
 
+def calc_accu(pred, gt):
+    assert pred.shape==gt.shape
+    correct = (pred == gt).sum().item()
+    accuracy = correct / pred.numel()
+    return accuracy
 
 def evaluate(hps, generator, eval_loader, writer_eval):
     generator.eval()
     ph_loss_all = 0
-
+    tone_loss_all = 0
+    ph_accuracys = []
+    tone_accuracys = []
     with torch.no_grad():
         for batch_idx,  (x, x_lengths, tone, unit) in enumerate(eval_loader):
             x, x_lengths = x.cuda(0), x_lengths.cuda(0)
             unit = unit.cuda(0)
             tone = tone.cuda(0)
 
-            x = x[:1]
-            x_lengths = x_lengths[:1]
-            spec = spec[:1]
-            spec_lengths = spec_lengths[:1]
-            y = y[:1]
-            lang = lang[:1]
-            sid = sid[:1]
-            y_lengths = y_lengths[:1]
-            pred, phoneme_loss = generator(x, x_lengths, tone, unit)
-            ph_loss_all +=phoneme_loss
-            if batch_idx <10:
-                convert_x_to_phones(pred, f"eval_{batch_idx}:", x)
+            pred_phoneme, pred_tone, phoneme_loss, tone_loss = generator(x, x_lengths, tone, unit)
+            ph_loss_all += phoneme_loss
+            tone_loss_all += tone_loss
+            
+            # 计算准确率
+            pred_ph_ids =  torch.argmax(pred_phoneme, dim=1)
+            ph_accuracy = calc_accu(pred_ph_ids, x)
+            ph_accuracys.append(ph_accuracy)
+            print("ph acc:", ph_accuracy)
+
+            pred_tone_ids =  torch.argmax(pred_tone, dim=1)
+            tone_accuracy = calc_accu(pred_tone_ids, tone)
+            tone_accuracys.append(tone_accuracy)
+            print("tone acc:", tone_accuracy)
+
+            # 输出预测结果
+            if batch_idx <3:
+                convert_x_to_phones(pred_phoneme[:1], f"eval_{batch_idx}:", x[:1])
+                print("pred_tone:",pred_tone_ids[:1])
+                print("gt_tone:",tone[:1])
 
 
-    scalar_dict = {"loss/infer/ph_loss_all": ph_loss_all}
+    scalar_dict = {"loss/infer/ph_loss_all": ph_loss_all,"loss/infer/tone_loss_all": tone_loss_all,
+                "loss/infer/tone_accuracy": sum(tone_accuracys) / len(tone_accuracys),
+                "loss/infer/ph_accuracy": sum(ph_accuracys) / len(ph_accuracys),
+    }
 
     utils.summarize(
         writer=writer_eval,

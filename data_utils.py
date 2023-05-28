@@ -21,7 +21,6 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
 
     def __init__(self, audiopaths_sid_text, hparams):
         self.audiopaths_sid_text = load_filepaths_and_text(audiopaths_sid_text)
-        self.spk_map = hparams.spk2id
         random.seed(1234)
         random.shuffle(self.audiopaths_sid_text)
         self._filter()
@@ -51,7 +50,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         return (text, tone, unit)
 
     def get_duration(self, duration, unit):
-        duration = [int(i) for i in duration]
+        duration = [int(i) for i in duration.split(" ")]
         sum_dur = sum(duration)
         sub = sum_dur - unit.shape[-1]
         assert abs(sub) < 2
@@ -60,7 +59,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         return duration
 
     def get_text(self, ph, tone, duration):
-        text_norm = [phone_to_int[i] for i in ph]
+        text_norm = [phone_to_int[i] for i in ph.split(" ")]
         tone = [int(i) for i in tone.split(" ")]
         text_norm_res = []
         tone_res = []
@@ -100,7 +99,7 @@ class TextAudioSpeakerCollate():
         """
         # Right zero-pad all one-hot text sequences to max input length
         _, ids_sorted_decreasing = torch.sort(
-            torch.LongTensor([x[1].size(1) for x in batch]),
+            torch.LongTensor([x[2].size(2) for x in batch]),
             dim=0, descending=True)
 
         max_text_len = max([len(x[0]) for x in batch])

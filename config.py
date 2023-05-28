@@ -1,0 +1,51 @@
+hps = {
+    "train": {
+        "keep_ckpts": 10,
+        "log_interval": 50,
+        "eval_interval": 400,
+        "seed": 1234,
+        "epochs": 20000,
+        "learning_rate": 1e-4,
+        "betas": [0.8, 0.99],
+        "eps": 1e-9,
+        "batch_size": 24,
+        "fp16_run": False,
+        "lr_decay": 0.999875,
+        "segment_size": 16384,
+        "init_lr_ratio": 1,
+        "warmup_epochs": 0,
+        "c_mel": 45,
+        "c_kl": 1.0,
+    },
+    "data": {
+        "unit_dim": 768,
+        "training_files": "filelists/train.list",
+        "validation_files": "filelists/val.list"
+    },
+    "model": {
+        "hidden_channels": 192,
+        "spk_channels": 192,
+        "filter_channels": 768,
+        "n_heads": 2,
+        "n_layers": 4,
+        "kernel_size": 3,
+        "p_dropout": 0.1,
+        "prior_hidden_channels": 192,
+        "prior_filter_channels": 768,
+        "prior_n_heads": 2,
+        "prior_n_layers": 4,
+        "prior_kernel_size": 3,
+        "prior_p_dropout": 0.1,
+        "resblock": "1",
+        "use_spectral_norm": False,
+        "resblock_kernel_sizes": [3, 7, 11],
+        "resblock_dilation_sizes": [[1, 3, 5], [1, 3, 5], [1, 3, 5]],
+        "upsample_rates": [8, 8, 4, 2],
+        "upsample_initial_channel": 256,
+        "upsample_kernel_sizes": [16, 16, 8, 4],
+        "n_harmonic": 64,
+        "n_bands": 65
+    },
+    "model_dir": "logs"
+}
+

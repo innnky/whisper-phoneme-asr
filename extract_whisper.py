@@ -17,6 +17,15 @@ import whisper_enc
 logging.getLogger("numba").setLevel(logging.WARNING)
 import librosa
 
+all_file = set()
+
+for line in open("filelists/train.list").readlines():
+    utt, spk = line.split("|")[:2]
+    all_file.add(f"dataset/wav/{spk}/{utt}.wav")
+for line in open("filelists/val.list").readlines():
+    utt, spk = line.split("|")[:2]
+    all_file.add(f"dataset/wav/{spk}/{utt}.wav")
+
 
 def process_one(file_path, model):
     path = Path(file_path)
@@ -29,7 +38,7 @@ def process_one(file_path, model):
     if not os.path.exists(ssl_path):
         wav16k_np, sr = librosa.load(path, sr=16000)
         ssl_content = whisper_enc.get_whisper_units(model, wav16k_np)
-        torch.save(ssl_content.cpu(), ssl_path)
+        torch.save(ssl_content.detach().cpu(), ssl_path)
 
 
 def process_batch(filenames):
@@ -49,6 +58,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     filenames = glob(f"{args.in_dir}/*/*.wav", recursive=True)  # [:10]
+    filenames = [i for i in filenames if i in all_file]
     shuffle(filenames)
     multiprocessing.set_start_method("spawn", force=True)
 
