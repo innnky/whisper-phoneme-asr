@@ -105,7 +105,7 @@ class PhonemeAsr(nn.Module):
         x = self.proj(x)
         return x
 
-def load_whisper_model(*args):
+def load_whisper_model():
     import whisper
     model = whisper.load_model("small")
     return model

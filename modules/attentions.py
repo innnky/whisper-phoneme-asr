@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from whisper import commons
+from whisper_enc import commons
 
 
 class LayerNorm(nn.Module):
