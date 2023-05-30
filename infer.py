@@ -19,12 +19,14 @@ def decode_phone_tone(x, t):
     # print([f"{p}_{t}" for p, t in zip(phones, tone_ids)])
     tones_res = []
     new_lst = []
+    durations = []
     previous = None
     tones_tmp = []
     for idx, item in enumerate(phones):
         if item != previous:
             if previous != None:
                 new_lst.append(previous)
+                durations.append(len(tones_tmp))
                 tone = calc_most(tones_tmp)
                 tones_res.append(tone)
                 tones_tmp = []
@@ -34,10 +36,11 @@ def decode_phone_tone(x, t):
         # else:
         #     tones_tmp.append(tone_ids[idx])
     new_lst.append(previous)
+    durations.append(len(tones_tmp))
     tone = calc_most(tones_tmp)
     tones_res.append(tone)
 
-    return new_lst, tones_res
+    return new_lst, tones_res, durations
 
 def calc_most(tones_tmp):
     counter = Counter()
@@ -69,17 +72,18 @@ def get_phoneme_tone(models,wav16k_np):
     with torch.no_grad():
         unit = whisper_enc.get_whisper_units(whisper_encoder, wav16k_np)
         pred_phoneme, pred_tone = recognition_model.infer(unit)
-        ph, to = decode_phone_tone(pred_phoneme, pred_tone)
-    return ph, to
+        ph, to, du = decode_phone_tone(pred_phoneme, pred_tone)
+    return ph, to, du
 
 
 if __name__ == '__main__':
     models = get_models("cpu")
-    path =  "/Users/xingyijin/Downloads/test2.wav"
-    path =  "/Volumes/Extend 5/AI/tts数据集/dataset/paimon/paimon/vo_ABDLQ001_1_paimon_01.wav"
+    path = "test2.wav"
     wav16k_np, sr = librosa.load(path, sr=16000)
-    ph, to = get_phoneme_tone(models, wav16k_np)
-    print([f"{p}_{t}" for p, t in zip(ph, to)])
+    ph, to, du = get_phoneme_tone(models, wav16k_np)
+    print("  ".join([f"{p}_{t}" for p, t in zip(ph, to)]))
+    print(du)
+
 
 
 
